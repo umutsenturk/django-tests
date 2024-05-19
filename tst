@@ -14,6 +14,17 @@ usage() {
     echo -e "                                To use that flag with django tests, \033[31myou need to"
     echo -e "                                copy no_db_test_runner.py file into an app"
     echo -e "                                like omnipro, shomnipro...\033[0m"
+    echo -e "  -w, --with       <string(s)>  Run tests with a specific string in the path"
+    echo -e "                                Example: [-w 'core' 'tests' 'src'] to run tests"
+    echo -e "                                only in 'core', 'tests' and 'src' keywords in"
+    echo -e "                                their path. If not provided, all tests which"
+    echo -e "                                matches with <file_name> will be run in the"
+    echo -e "                                project"
+    echo -e "  -p, --print                   Print the test commands instead of running"
+    echo -e "  -ff, --failfast               Stop the test run on the first error or failure"
+    echo -e "  -k, --keepdb                  Preserves the test database between runs"
+    echo -e "  -s, --settings   <string>     Run tests with a specific settings file"
+    echo -e "                                If not provided, script will search for a file"
     echo -e ""
     echo -e ""
     echo -e " \033[32mDjango Specific Options:\033[0m"
@@ -23,15 +34,6 @@ usage() {
     echo -e "  -rc, --r-class   <string>     Run tests with a specific testrunner class"
     echo -e ""
     echo -e ""
-    echo -e " \033[32mPytest Specific Options:\033[0m"
-    echo -e "  -s, --settings   <string>     Run tests with a specific settings file"
-    echo -e "                                If not provided, script will search for a file"
-    echo -e "  -w, --with       <string(s)>  Run tests with a specific string in the path"
-    echo -e "                                Example: [-w 'core' 'tests' 'src'] to run tests"
-    echo -e "                                only in 'core', 'tests' and 'src' keywords in"
-    echo -e "                                their path. If not provided, all tests which"
-    echo -e "                                matches with <file_name> will be run in the"
-    echo -e "                                project"
     echo -e ""
     echo -e ""
     echo -e " \033[32mPython 2.7+ Examples:\033[0m"
@@ -61,9 +63,10 @@ usage() {
     exit 1
 }
 
-# TODO: Add print option instead of running the tests
+# TODO: Add auto-detect py version to run the script instead of using -t flag
+# TODO: Add functionality to run specific test classes
+# TODO: Add -v flag to run tests in verbose mode
 # TODO: Add flake8
-# TODO: Add keepdb and failfast flags
 
 declare -a cmd_arr
 declare -a single_arr
@@ -95,6 +98,9 @@ done
 append_arr
 
 no_db=false
+print_cmd=false
+failfast=false
+keepdb=false
 test=''
 file=''
 with=''
@@ -144,6 +150,15 @@ do
         -n|--no-db)
             no_db=true
         ;;
+        -p|--print)
+            print_cmd=true
+        ;;
+        -ff|--failfast)
+            failfast=true
+        ;;
+        -k|--keepdb)
+            keepdb=true
+        ;;
         -h|--help)
             usage
         ;;
@@ -179,32 +194,58 @@ if [[ $test == "p" || $test == "pytest" ]]; then
     file=${file//.\//\/}
 elif [[ $test == "d" || $test == "django" ]]; then
     file="*test_${file}.py"
+    for i in ${with// / }
+    do
+        file="*$i*${file}"
+    done
 fi
 
 
-pytest="DJANGO_SETTINGS_MODULE=__settings__ pytest __migrations__ -W ignore::DeprecationWarning -W ignore::PendingDeprecationWarning --verbose __file__"
+pytest="DJANGO_SETTINGS_MODULE=__settings__ pytest __migrations__ -W ignore::DeprecationWarning -W ignore::PendingDeprecationWarning --verbose __file__ __failfast__ __keepdb__"
 
-django="python manage.py test omnishop omnicore -p '__file__' __migrations__"
+django="python manage.py test omnishop omnicore -p '__file__' __migrations__ __failfast__ __keepdb__ --settings=__settings__"
+
+if [[ -z $settings ]]; then
+    settings=`find -type f -name 'settings.py' | sed 's/\.\///g' | sed 's/\.py//' | sed 's/\//\./'`
+else
+    settings=`find -type f -name "$settings.py" | sed 's/\.\///g' | sed 's/\.py//' | sed 's/\//\./'`
+fi
 
 if [[ $test == "p" || $test == "pytest" ]]; then
-    if [[ -z $settings ]]; then
-        settings=`find -type f -name 'settings.py' | sed 's/\.\///g' | sed 's/\.py//' | sed 's/\//\./'`
-    else
-        settings=`find -type f -name "$settings.py" | sed 's/\.\///g' | sed 's/\.py//' | sed 's/\//\./'`
-    fi
+    
     pytest=${pytest//__settings__/$settings}
     if [[ $no_db == true ]]; then
         pytest=${pytest//__migrations__/"--no-migrations"}
     else
         pytest=${pytest//__migrations__/}
     fi
-    
-    for i in ${file// / }
-    do
-        item=${i/\//}
-        eval "${pytest//__file__/$item}"
-    done
+    if [[ $failfast == true ]]; then
+        pytest=${pytest//__failfast__/"-x"}
+    else
+        pytest=${pytest//__failfast__/}
+    fi
+    if [[ $keepdb == true ]]; then
+        pytest=${pytest//__keepdb__/"--reuse-db"}
+    else
+        pytest=${pytest//__keepdb__/}
+    fi
+
+    if [[ $print_cmd == true ]]; then
+        for i in ${file// / }
+        do
+            item=${i/\//}
+            echo "${pytest//__file__/$item}"
+            echo ""
+        done
+    else
+        for i in ${file// / }
+        do
+            item=${i/\//}
+            eval "${pytest//__file__/$item}"
+        done
+    fi
 elif [[ $test == "d" || $test == "django" ]]; then
+    django=${django//__settings__/$settings}
     if [[ ! -z $runner ]]; then
         if [[ -z $r_class ]]; then
             echo "ERROR: No test runner class specified with -rc flag"
@@ -215,15 +256,35 @@ elif [[ $test == "d" || $test == "django" ]]; then
         django=${django//__migrations__/"--testrunner=$testrunner.$r_class"}
     elif [[ $no_db == true ]]; then
         testrunner=`find -name no_db_test_runner.py | sed 's/\.\///g' | sed 's/\.py//' | sed 's/\//\./g'`
-        django=${django//__migrations__/"--testrunner=$testrunner.NoDbTestRunner"}
+        django=${django//__migrations__/"--testrunner=$testrunner.NoDbTestRunnerFullPath"}
     else
-        django=${django//__migrations__/}
+        testrunner=`find -name no_db_test_runner.py | sed 's/\.\///g' | sed 's/\.py//' | sed 's/\//\./g'`
+        django=${django//__migrations__/"--testrunner=$testrunner.DefaultTestRunnerFullPath"}
     fi
-    echo $django
-    for i in ${file// / }
-    do
-        eval "${django//__file__/$i}"
-    done
+    if [[ $failfast == true ]]; then
+        django=${django//__failfast__/"--failfast"}
+    else
+        django=${django//__failfast__/}
+    fi
+    if [[ $keepdb == true ]]; then
+        django=${django//__keepdb__/"-k"}
+    else
+        django=${django//__keepdb__/}
+    fi
+
+    if [[ $print_cmd == true ]]; then
+        for i in ${file// / }
+        do
+            echo "${django//__file__/$i}"
+            echo ""
+        done
+    else
+        for i in ${file// / }
+        do
+            eval "${django//__file__/$i}"
+        done
+    fi
+    
 else
     echo "ERROR: Invalid test type"
     usage
