@@ -1,7 +1,7 @@
 #!/bin/bash
 
 usage() {
-    echo -e "\033[32mUsage:\033[0m tst -t <test_name> [-f <file_name>|*] [-n] ..."
+    echo -e "\033[32mUsage:\033[0m tst [-t <test_name>] [-f <file_name>|*] [-n] ..."
     echo -e "  -h, --help                    Display this help message"
     echo -e "  -t, --test       <test_name>  Run a specific test"
     echo -e "                                Options: \033[31m[p]ytest, [d]jango\033[0m"
@@ -25,6 +25,7 @@ usage() {
     echo -e "  -k, --keepdb                  Preserves the test database between runs"
     echo -e "  -s, --settings   <string>     Run tests with a specific settings file"
     echo -e "                                If not provided, script will search for a file"
+    echo -e "  -v, --verbose    <1|2|3>      Run tests in verbose mode"
     echo -e ""
     echo -e ""
     echo -e " \033[32mDjango Specific Options:\033[0m"
@@ -63,13 +64,15 @@ usage() {
     exit 1
 }
 
-# TODO: Add auto-detect py version to run the script instead of using -t flag
 # TODO: Add functionality to run specific test classes
-# TODO: Add -v flag to run tests in verbose mode
+# TODO: Add -v flag to run tests in verbose mode => add functionality
 # TODO: Add flake8
+# TODO: Auto detect modules for 2.7
 
 declare -a cmd_arr
 declare -a single_arr
+declare -a version_arr
+
 
 index_i=0
 
@@ -106,6 +109,7 @@ file=''
 with=''
 settings=''
 runner=''
+verbose=0
 
 # take each flag and assign the value to the variables
 for i in "${cmd_arr[@]}"
@@ -147,6 +151,12 @@ do
         -rc=*|--r-class=*)
             r_class="${i#*=}"
         ;;
+        -v\ *|--verbose\ *)
+            verbose=$(("${i#* }"))
+        ;;
+        -v=*|--verbose=*)
+            verbose=$(("${i#*=}"))
+        ;;
         -n|--no-db)
             no_db=true
         ;;
@@ -174,8 +184,21 @@ if [[ -z $cmd_arr ]]; then
 fi
 
 if [[ -z $test ]]; then
-    echo "ERROR: No test specified"
-    usage
+    version=`python -c 'import sys; print(str(sys.version_info[0]) + " " + str(sys.version_info[1]))'`
+    for i in ${version// / }
+    do
+        version_arr+=($i)
+    done
+    if [[ ${version_arr[0]} == "2" ]]; then
+        test="d"
+    elif [[ ${version_arr[0]} == "3" && $((${version_arr[1]: -${#version_arr[1]}} >= 7)) ]]; then
+        test="p"
+
+    else
+        echo "ERROR: Python version is not supported."
+        echo "You need to specify the test type with -t flag"
+        usage
+    fi
 fi
 
 if [[ -z $file ]]; then
@@ -200,10 +223,9 @@ elif [[ $test == "d" || $test == "django" ]]; then
     done
 fi
 
+pytest="DJANGO_SETTINGS_MODULE=__settings__ pytest __migrations__ -W ignore::DeprecationWarning -W ignore::PendingDeprecationWarning --verbose __file__ __failfast__ __keepdb__ __verbose__"
 
-pytest="DJANGO_SETTINGS_MODULE=__settings__ pytest __migrations__ -W ignore::DeprecationWarning -W ignore::PendingDeprecationWarning --verbose __file__ __failfast__ __keepdb__"
-
-django="python manage.py test omnishop omnicore -p '__file__' __migrations__ __failfast__ __keepdb__ --settings=__settings__"
+django="python manage.py test omnishop omnicore -p '__file__' __migrations__ __failfast__ __keepdb__ --settings=__settings__ __verbose__"
 
 if [[ -z $settings ]]; then
     settings=`find -type f -name 'settings.py' | sed 's/\.\///g' | sed 's/\.py//' | sed 's/\//\./'`
@@ -228,6 +250,11 @@ if [[ $test == "p" || $test == "pytest" ]]; then
         pytest=${pytest//__keepdb__/"--reuse-db"}
     else
         pytest=${pytest//__keepdb__/}
+    fi
+    if [[ $verbose -gt 0 ]]; then
+        pytest=${pytest//__verbose__/"--verbosity=$verbose"}
+    else
+        pytest=${pytest//__verbose__/}
     fi
 
     if [[ $print_cmd == true ]]; then
@@ -270,6 +297,11 @@ elif [[ $test == "d" || $test == "django" ]]; then
         django=${django//__keepdb__/"-k"}
     else
         django=${django//__keepdb__/}
+    fi
+    if [[ $verbose -gt 0 ]]; then
+        django=${django//__verbose__/"-v $verbose"}
+    else
+        django=${django//__verbose__/}
     fi
 
     if [[ $print_cmd == true ]]; then

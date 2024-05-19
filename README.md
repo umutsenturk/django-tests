@@ -22,7 +22,7 @@ Python 3.7+ required for Pytest, 2.7+ required for django-admin test
 
 |Parameter|Required|Test Type|Value Type|Default|Description|
 |---------|:------:|:-------:|:--------:|:-----:|-----------|
-|-t, --type|&#9745;|both|d\|django\|p\|pytest|empty|Type of test|
+|-t, --type|&#9746;|both|d\|django\|p\|pytest|empty|Type of test. Script will check automatically.|
 |-f, --file|&#9746;|both|string|*|Test file name. Script will find all `test_<file_name>.py` files|
 |-n, --no-db|&#9746;|both|&#9746;|false|Disables test database and migrations|
 |-w, --with|&#9746;|both|strings with space delimiter|empty|Script will find test files and filter their path with these keywords.|
