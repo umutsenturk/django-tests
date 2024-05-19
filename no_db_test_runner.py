@@ -10,12 +10,12 @@ class FullPathTestLoader(TestLoader):
 
 
 class DefaultTestRunnerFullPath(DiscoverRunner):
-    test_loader = FullPathTestLoader
+    test_loader = FullPathTestLoader()
 
 
 class NoDbTestRunnerFullPath(DiscoverRunner):
     """ A test runner to test without database creation/deletion """
-    test_loader = FullPathTestLoader
+    test_loader = FullPathTestLoader()
 
     def setup_databases(self, **kwargs):
         pass

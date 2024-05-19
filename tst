@@ -67,6 +67,7 @@ usage() {
 # TODO: Add functionality to run specific test classes => add functionality and to usage
 # TODO: Add flake8
 # TODO: Auto detect modules for 2.7
+# TODO: -w flag for django tests works in order now, make it work in any order
 
 declare -a cmd_arr
 declare -a single_arr
