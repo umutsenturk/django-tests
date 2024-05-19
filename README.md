@@ -19,7 +19,9 @@
 ## Parameters
 
 <style>
-    td {word-break: keep-all}
+    td {
+        word-break: keep-all !important;
+    }
 </style>
 |Parameter|Required|Test Type|Value Type|Default|Description|
 |---------|:------:|:-------:|:--------:|:-----:|-----------|
