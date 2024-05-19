@@ -31,7 +31,7 @@ Python 3.7+ required for Pytest, 2.7+ required for django-admin test
 |-k, --keepdb|&#9746;|both|&#9746;|false|Preserves the test database between runs|
 |-s, --settings|&#9746;|both|string|settings|`settings` file name. If not provided, script will search an available `<settings_file>.py` file inside the directory.|
 |-r, --runner|&#9746;|django|string|no_db_test_runner|Django Test Runner file name. Script will search an available `.py` file with that name|
-|-rc, --r-class|if `-r`|django|string|NoDbTestRunner|Django Test Runner Class name. Required to specify test runner.|
+|-rc, --r-class|if `-r`|django|string|NoDbTestRunnerFullPath|Django Test Runner Class name. Required to specify test runner.|
 
 
 
