@@ -64,8 +64,7 @@ usage() {
     exit 1
 }
 
-# TODO: Add functionality to run specific test classes
-# TODO: Add -v flag to run tests in verbose mode => add functionality
+# TODO: Add functionality to run specific test classes => add functionality and to usage
 # TODO: Add flake8
 # TODO: Auto detect modules for 2.7
 
@@ -109,6 +108,7 @@ file=''
 with=''
 settings=''
 runner=''
+class=''
 verbose=0
 
 # take each flag and assign the value to the variables
@@ -156,6 +156,12 @@ do
         ;;
         -v=*|--verbose=*)
             verbose=$(("${i#*=}"))
+        ;;
+        -c\ *|--test-class\ *)
+            test_class="${i#* }"
+        ;;
+        -c=*|--test-class=*)
+            test_class="${i#*=}"
         ;;
         -n|--no-db)
             no_db=true
